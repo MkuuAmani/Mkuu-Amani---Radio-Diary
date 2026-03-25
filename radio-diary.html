@@ -16,19 +16,9 @@ body{
   padding:30px;
 }
 
-/* TITLE */
-h1{
-  font-size:36px;
-  margin-bottom:10px;
-}
+h1{ font-size:36px; margin-bottom:10px; }
+h2{ font-size:16px; opacity:0.7; margin-bottom:30px; }
 
-h2{
-  font-size:16px;
-  opacity:0.7;
-  margin-bottom:30px;
-}
-
-/* BUTTON */
 button{
   padding:14px 25px;
   font-size:16px;
@@ -40,34 +30,20 @@ button{
   margin-bottom:20px;
 }
 
-/* RECORDING STATE */
 .recording{
   background:#ff4d4d !important;
   color:#fff !important;
 }
 
-/* ENTRY LIST */
-.entries{
-  width:100%;
-  max-width:600px;
-}
-
+.entries{ width:100%; max-width:600px; }
 .entry{
   background:#0b0b0b;
   border-radius:12px;
   padding:15px;
   margin-bottom:15px;
 }
-
-.entry p{
-  margin:0 0 10px 0;
-  font-size:14px;
-  opacity:0.8;
-}
-
-audio{
-  width:100%;
-}
+.entry p{ margin:0 0 10px 0; font-size:14px; opacity:0.8; }
+audio{ width:100%; }
 </style>
 </head>
 
@@ -89,33 +65,36 @@ const recordBtn = document.getElementById("recordBtn");
 const entries = document.getElementById("entries");
 
 recordBtn.onclick = async () => {
-
   if(!isRecording){
-
     const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
     mediaRecorder = new MediaRecorder(stream);
-
     mediaRecorder.start();
     audioChunks = [];
 
-    mediaRecorder.ondataavailable = e => {
-      audioChunks.push(e.data);
-    };
+    mediaRecorder.ondataavailable = e => { audioChunks.push(e.data); };
 
     mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: "audio/mp3" });
+      const blob = new Blob(audioChunks, { type: "audio/wav" });
       const audioURL = URL.createObjectURL(blob);
 
+      const time = new Date();
+      const timestamp = time.toISOString().replace("T","_").split(".")[0].replace(/:/g,"-");
+
+      // Auto download
+      const a = document.createElement("a");
+      a.href = audioURL;
+      a.download = `Peace_LiveShow_${timestamp}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Add entry to page
       const entry = document.createElement("div");
       entry.className = "entry";
-
-      const time = new Date().toLocaleString();
-
       entry.innerHTML = `
-        <p>${time}</p>
+        <p>${time.toLocaleString()}</p>
         <audio controls src="${audioURL}"></audio>
       `;
-
       entries.prepend(entry);
     };
 
@@ -124,9 +103,7 @@ recordBtn.onclick = async () => {
     isRecording = true;
 
   } else {
-
     mediaRecorder.stop();
-
     recordBtn.textContent = "Start Recording";
     recordBtn.classList.remove("recording");
     isRecording = false;

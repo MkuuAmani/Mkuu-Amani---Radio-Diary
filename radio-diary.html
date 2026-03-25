@@ -2,111 +2,83 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Mkuu Amani - Radio Diary</title>
-
+<title>Simple Browser Recorder</title>
 <style>
-body{
-  margin:0;
-  background:#02060d;
-  color:#FFD700;
-  font-family:Arial, sans-serif;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding:30px;
+body {
+  background: #02060d;
+  color: #FFD700;
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px;
 }
 
-h1{ font-size:36px; margin-bottom:10px; }
-h2{ font-size:16px; opacity:0.7; margin-bottom:30px; }
-
-button{
-  padding:14px 25px;
-  font-size:16px;
-  border:none;
-  border-radius:30px;
-  cursor:pointer;
-  background:#FFD700;
-  color:#000;
-  margin-bottom:20px;
+button {
+  padding: 14px 25px;
+  font-size: 16px;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  background: #FFD700;
+  color: #000;
+  margin-bottom: 20px;
 }
 
-.recording{
-  background:#ff4d4d !important;
-  color:#fff !important;
+button.recording {
+  background: #ff4d4d !important;
+  color: #fff !important;
 }
 
-.entries{ width:100%; max-width:600px; }
-.entry{
-  background:#0b0b0b;
-  border-radius:12px;
-  padding:15px;
-  margin-bottom:15px;
+audio {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 15px;
 }
-.entry p{ margin:0 0 10px 0; font-size:14px; opacity:0.8; }
-audio{ width:100%; }
 </style>
 </head>
-
 <body>
 
-<h1>Mkuu Amani</h1>
-<h2>Radio Diary 🎙️</h2>
-
+<h1>Browser Recorder</h1>
 <button id="recordBtn">Start Recording</button>
-
-<div class="entries" id="entries"></div>
-
-<!-- Recorder.js library -->
-<script src="https://cdn.jsdelivr.net/npm/recorder-js@1.0.3/dist/recorder.min.js"></script>
+<div id="playback"></div>
 
 <script>
-let audioContext;
-let recorder;
+let mediaRecorder;
+let audioChunks = [];
 let isRecording = false;
 
 const recordBtn = document.getElementById("recordBtn");
-const entries = document.getElementById("entries");
+const playback = document.getElementById("playback");
 
 recordBtn.onclick = async () => {
-  if(!isRecording){
-    // Get microphone
-    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const input = audioContext.createMediaStreamSource(stream);
+  if (!isRecording) {
+    // Start recording
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
 
-    // Initialize Recorder.js
-    recorder = new Recorder(input, { numChannels: 1 });
-    await recorder.start();
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
 
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
+      const audioURL = URL.createObjectURL(blob);
+
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.src = audioURL;
+
+      playback.innerHTML = '';
+      playback.appendChild(audio);
+    };
+
+    mediaRecorder.start();
     recordBtn.textContent = "Stop Recording";
     recordBtn.classList.add("recording");
     isRecording = true;
   } else {
     // Stop recording
-    const { blob } = await recorder.stop();
-
-    const time = new Date();
-    const timestamp = time.toISOString().replace("T","_").split(".")[0].replace(/:/g,"-");
-
-    const audioURL = URL.createObjectURL(blob);
-
-    // Auto download WAV
-    const a = document.createElement("a");
-    a.href = audioURL;
-    a.download = `Peace_LiveShow_${timestamp}.wav`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    // Add entry to page
-    const entry = document.createElement("div");
-    entry.className = "entry";
-    entry.innerHTML = `
-      <p>${time.toLocaleString()}</p>
-      <audio controls src="${audioURL}"></audio>
-    `;
-    entries.prepend(entry);
-
+    mediaRecorder.stop();
     recordBtn.textContent = "Start Recording";
     recordBtn.classList.remove("recording");
     isRecording = false;

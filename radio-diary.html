@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mkuu Amani - Radio Diary</title>
+
+<style>
+body{
+  margin:0;
+  background:#02060d;
+  color:#FFD700;
+  font-family:Arial, sans-serif;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:30px;
+}
+
+/* TITLE */
+h1{
+  font-size:36px;
+  margin-bottom:10px;
+}
+
+h2{
+  font-size:16px;
+  opacity:0.7;
+  margin-bottom:30px;
+}
+
+/* BUTTON */
+button{
+  padding:14px 25px;
+  font-size:16px;
+  border:none;
+  border-radius:30px;
+  cursor:pointer;
+  background:#FFD700;
+  color:#000;
+  margin-bottom:20px;
+}
+
+/* RECORDING STATE */
+.recording{
+  background:#ff4d4d !important;
+  color:#fff !important;
+}
+
+/* ENTRY LIST */
+.entries{
+  width:100%;
+  max-width:600px;
+}
+
+.entry{
+  background:#0b0b0b;
+  border-radius:12px;
+  padding:15px;
+  margin-bottom:15px;
+}
+
+.entry p{
+  margin:0 0 10px 0;
+  font-size:14px;
+  opacity:0.8;
+}
+
+audio{
+  width:100%;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Mkuu Amani</h1>
+<h2>Radio Diary 🎙️</h2>
+
+<button id="recordBtn">Start Recording</button>
+
+<div class="entries" id="entries"></div>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+
+const recordBtn = document.getElementById("recordBtn");
+const entries = document.getElementById("entries");
+
+recordBtn.onclick = async () => {
+
+  if(!isRecording){
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.start();
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = e => {
+      audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, { type: "audio/mp3" });
+      const audioURL = URL.createObjectURL(blob);
+
+      const entry = document.createElement("div");
+      entry.className = "entry";
+
+      const time = new Date().toLocaleString();
+
+      entry.innerHTML = `
+        <p>${time}</p>
+        <audio controls src="${audioURL}"></audio>
+      `;
+
+      entries.prepend(entry);
+    };
+
+    recordBtn.textContent = "Stop Recording";
+    recordBtn.classList.add("recording");
+    isRecording = true;
+
+  } else {
+
+    mediaRecorder.stop();
+
+    recordBtn.textContent = "Start Recording";
+    recordBtn.classList.remove("recording");
+    isRecording = false;
+  }
+};
+</script>
+
+</body>
+</html>

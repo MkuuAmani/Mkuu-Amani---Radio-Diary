@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Simple Browser Recorder</title>
+<title>High-Quality Browser Recorder</title>
 <style>
 body {
   background: #02060d;
@@ -13,7 +13,6 @@ body {
   align-items: center;
   padding: 30px;
 }
-
 button {
   padding: 14px 25px;
   font-size: 16px;
@@ -24,61 +23,106 @@ button {
   color: #000;
   margin-bottom: 20px;
 }
-
 button.recording {
   background: #ff4d4d !important;
   color: #fff !important;
 }
-
-audio {
-  width: 100%;
-  max-width: 600px;
-  margin-top: 15px;
+.entries{ width:100%; max-width:600px; }
+.entry{
+  background:#0b0b0b;
+  border-radius:12px;
+  padding:15px;
+  margin-bottom:15px;
 }
+.entry p{ margin:0 0 10px 0; font-size:14px; opacity:0.8; }
+audio{ width:100%; }
 </style>
 </head>
 <body>
 
-<h1>Browser Recorder</h1>
+<h1>High-Quality Recorder</h1>
 <button id="recordBtn">Start Recording</button>
-<div id="playback"></div>
+<div class="entries" id="entries"></div>
+
+<!-- Recorder.js library -->
+<script src="https://cdn.jsdelivr.net/npm/recorder-js@1.0.3/dist/recorder.min.js"></script>
 
 <script>
-let mediaRecorder;
-let audioChunks = [];
+let audioContext;
+let recorder;
 let isRecording = false;
-
 const recordBtn = document.getElementById("recordBtn");
-const playback = document.getElementById("playback");
+const entries = document.getElementById("entries");
 
 recordBtn.onclick = async () => {
-  if (!isRecording) {
-    // Start recording
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
+  if(!isRecording){
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        sampleRate: 44100,
+        channelCount: 1,
+        noiseSuppression: false,
+        echoCancellation: false
+      }
+    });
 
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const input = audioContext.createMediaStreamSource(stream);
 
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: "audio/webm" });
-      const audioURL = URL.createObjectURL(blob);
+    // Gain node for normalization
+    const gainNode = audioContext.createGain();
+    input.connect(gainNode);
 
-      const audio = document.createElement("audio");
-      audio.controls = true;
-      audio.src = audioURL;
+    // Optional: normalize volume by dynamically adjusting gain
+    // Simple auto-normalization using max peak
+    gainNode.gain.value = 1.0; // Start neutral
 
-      playback.innerHTML = '';
-      playback.appendChild(audio);
-    };
+    recorder = new Recorder(gainNode, { numChannels: 1 });
+    await recorder.start();
 
-    mediaRecorder.start();
     recordBtn.textContent = "Stop Recording";
     recordBtn.classList.add("recording");
     isRecording = true;
+
   } else {
-    // Stop recording
-    mediaRecorder.stop();
+    const { blob, buffer } = await recorder.stop();
+
+    // Simple normalization: find max amplitude and scale
+    let max = 0;
+    buffer[0].forEach(v => { if(Math.abs(v) > max) max = Math.abs(v); });
+    const normalizeFactor = max > 0 ? 1 / max : 1;
+
+    const normalizedBuffer = buffer[0].map(v => v * normalizeFactor);
+
+    // Create WAV from normalized buffer
+    const offlineCtx = new OfflineAudioContext(1, normalizedBuffer.length, 44100);
+    const audioBuffer = offlineCtx.createBuffer(1, normalizedBuffer.length, 44100);
+    audioBuffer.copyToChannel(Float32Array.from(normalizedBuffer), 0, 0);
+
+    offlineCtx.startRendering().then(renderedBuffer => {
+      const wavBlob = recorder.exportWAV(renderedBuffer);
+      const audioURL = URL.createObjectURL(wavBlob);
+
+      const time = new Date();
+      const timestamp = time.toISOString().replace("T","_").split(".")[0].replace(/:/g,"-");
+
+      // Auto download WAV
+      const a = document.createElement("a");
+      a.href = audioURL;
+      a.download = `Peace_LiveShow_${timestamp}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Add entry to page
+      const entry = document.createElement("div");
+      entry.className = "entry";
+      entry.innerHTML = `
+        <p>${time.toLocaleString()}</p>
+        <audio controls src="${audioURL}"></audio>
+      `;
+      entries.prepend(entry);
+    });
+
     recordBtn.textContent = "Start Recording";
     recordBtn.classList.remove("recording");
     isRecording = false;

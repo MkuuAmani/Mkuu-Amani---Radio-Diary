@@ -67,14 +67,18 @@ const entries = document.getElementById("entries");
 recordBtn.onclick = async () => {
   if(!isRecording){
     const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    mediaRecorder = new MediaRecorder(stream);
+    
+    // Prefer MP3 if browser supports it
+    const options = { mimeType: 'audio/mpeg' };
+    mediaRecorder = new MediaRecorder(stream, options);
+
     mediaRecorder.start();
     audioChunks = [];
 
     mediaRecorder.ondataavailable = e => { audioChunks.push(e.data); };
 
     mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: "audio/wav" });
+      const blob = new Blob(audioChunks, { type: "audio/mpeg" });
       const audioURL = URL.createObjectURL(blob);
 
       const time = new Date();
@@ -83,7 +87,7 @@ recordBtn.onclick = async () => {
       // Auto download
       const a = document.createElement("a");
       a.href = audioURL;
-      a.download = `Peace_LiveShow_${timestamp}.wav`;
+      a.download = `Peace_LiveShow_${timestamp}.mp3`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

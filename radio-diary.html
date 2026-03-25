@@ -56,9 +56,12 @@ audio{ width:100%; }
 
 <div class="entries" id="entries"></div>
 
+<!-- Recorder.js library -->
+<script src="https://cdn.jsdelivr.net/npm/recorder-js@1.0.3/dist/recorder.min.js"></script>
+
 <script>
-let mediaRecorder;
-let audioChunks = [];
+let audioContext;
+let recorder;
 let isRecording = false;
 
 const recordBtn = document.getElementById("recordBtn");
@@ -66,47 +69,44 @@ const entries = document.getElementById("entries");
 
 recordBtn.onclick = async () => {
   if(!isRecording){
+    // Get microphone
     const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    
-    // Create MediaRecorder with WAV-like quality (default PCM)
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start();
-    audioChunks = [];
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const input = audioContext.createMediaStreamSource(stream);
 
-    mediaRecorder.ondataavailable = e => { audioChunks.push(e.data); };
-
-    mediaRecorder.onstop = () => {
-      // Use Blob type audio/wav
-      const blob = new Blob(audioChunks, { type: "audio/wav" });
-      const audioURL = URL.createObjectURL(blob);
-
-      const time = new Date();
-      const timestamp = time.toISOString().replace("T","_").split(".")[0].replace(/:/g,"-");
-
-      // Auto download
-      const a = document.createElement("a");
-      a.href = audioURL;
-      a.download = `Peace_LiveShow_${timestamp}.wav`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      // Add entry to page
-      const entry = document.createElement("div");
-      entry.className = "entry";
-      entry.innerHTML = `
-        <p>${time.toLocaleString()}</p>
-        <audio controls src="${audioURL}"></audio>
-      `;
-      entries.prepend(entry);
-    };
+    // Initialize Recorder.js
+    recorder = new Recorder(input, { numChannels: 1 });
+    await recorder.start();
 
     recordBtn.textContent = "Stop Recording";
     recordBtn.classList.add("recording");
     isRecording = true;
-
   } else {
-    mediaRecorder.stop();
+    // Stop recording
+    const { blob } = await recorder.stop();
+
+    const time = new Date();
+    const timestamp = time.toISOString().replace("T","_").split(".")[0].replace(/:/g,"-");
+
+    const audioURL = URL.createObjectURL(blob);
+
+    // Auto download WAV
+    const a = document.createElement("a");
+    a.href = audioURL;
+    a.download = `Peace_LiveShow_${timestamp}.wav`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Add entry to page
+    const entry = document.createElement("div");
+    entry.className = "entry";
+    entry.innerHTML = `
+      <p>${time.toLocaleString()}</p>
+      <audio controls src="${audioURL}"></audio>
+    `;
+    entries.prepend(entry);
+
     recordBtn.textContent = "Start Recording";
     recordBtn.classList.remove("recording");
     isRecording = false;

@@ -56,33 +56,34 @@ audio{ width:100%; }
 
 <div class="entries" id="entries"></div>
 
-<script>
-let mediaRecorder;
-let audioChunks = [];
-let isRecording = false;
+<!-- Recorder.js library -->
+<script src="https://cdn.jsdelivr.net/npm/recorder-js@1.0.3/dist/recorder.min.js"></script>
 
+<script>
+let audioContext;
+let recorder;
+let isRecording = false;
 const recordBtn = document.getElementById("recordBtn");
 const entries = document.getElementById("entries");
 
 recordBtn.onclick = async () => {
   if(!isRecording){
     const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    
-    // Prefer MP3 if browser supports it
-    const options = { mimeType: 'audio/mpeg' };
-    mediaRecorder = new MediaRecorder(stream, options);
-
-    mediaRecorder.start();
-    audioChunks = [];
-
-    mediaRecorder.ondataavailable = e => { audioChunks.push(e.data); };
-
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: "audio/mpeg" });
-      const audioURL = URL.createObjectURL(blob);
-
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const input = audioContext.createMediaStreamSource(stream);
+    recorder = new Recorder(input, { numChannels:1 });
+    recorder.start().then(() => {
+      recordBtn.textContent = "Stop Recording";
+      recordBtn.classList.add("recording");
+      isRecording = true;
+    });
+  } else {
+    recorder.stop().then(({ blob, buffer }) => {
       const time = new Date();
       const timestamp = time.toISOString().replace("T","_").split(".")[0].replace(/:/g,"-");
+
+      // Convert to MP3 using blob from Recorder.js
+      const audioURL = URL.createObjectURL(blob);
 
       // Auto download
       const a = document.createElement("a");
@@ -100,14 +101,8 @@ recordBtn.onclick = async () => {
         <audio controls src="${audioURL}"></audio>
       `;
       entries.prepend(entry);
-    };
+    });
 
-    recordBtn.textContent = "Stop Recording";
-    recordBtn.classList.add("recording");
-    isRecording = true;
-
-  } else {
-    mediaRecorder.stop();
     recordBtn.textContent = "Start Recording";
     recordBtn.classList.remove("recording");
     isRecording = false;

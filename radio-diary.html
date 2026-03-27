@@ -132,7 +132,7 @@ recordBtn.onclick = async () => {
 
 </body>
 </html>
-<!-- PRODIGAL SUN RADIO X POST GENERATOR (AUTO-FILL NOW PLAYING) -->
+<!-- PRODIGAL SUN RADIO X POST GENERATOR (Standalone, Auto-Fill Now Playing) -->
 <div id="xPostGenerator" style="margin-top:30px; padding:20px; background:#111; border-radius:12px; color:#fff; font-family:Arial,sans-serif;">
   <h2 style="margin-bottom:10px; color:#f7c873;">Generate X Post</h2>
   
@@ -151,24 +151,37 @@ recordBtn.onclick = async () => {
 </div>
 
 <script>
-(function(){
+(async function(){
   const input = document.getElementById("xPostInput");
   const button = document.getElementById("xGenerateButton");
   const output = document.getElementById("xOutput");
   const charCount = document.getElementById("xCharCount");
 
-  // Function to get current track from the ticker (assumes you have a span for now playing)
-  function getCurrentTrack() {
-    const nowPlayingSpan = document.querySelector("#psrTicker span"); // first span = now playing
-    return nowPlayingSpan ? nowPlayingSpan.textContent : "";
+  // Your RadioKing Now Playing API URL
+  const NOW_PLAYING_API = "https://api.radioking.io/widget/radio/the-channel-x/track/current";
+
+  // Fetch current track from API
+  async function fetchNowPlaying() {
+    try {
+      const res = await fetch(NOW_PLAYING_API, {cache: "no-store"});
+      const data = await res.json();
+      const artist = data.artist || "Unknown Artist";
+      const title = data.title || "Unknown Title";
+      return `🎵 Now Playing: ${artist} – ${title}`;
+    } catch(e) {
+      console.log("Error fetching Now Playing", e);
+      return "";
+    }
   }
 
-  // Auto-fill with current track on focus
-  input.addEventListener("focus", () => {
-    if(input.value.trim() === "") {
-      const track = getCurrentTrack();
-      if(track) input.value = `🎵 Now Playing: ${track}`;
-      charCount.textContent = `${input.value.length} / 280`;
+  // Auto-fill on focus
+  input.addEventListener("focus", async () => {
+    if(input.value.trim() === ""){
+      const track = await fetchNowPlaying();
+      if(track){
+        input.value = track;
+        charCount.textContent = `${input.value.length} / 280`;
+      }
     }
   });
 
@@ -178,9 +191,9 @@ recordBtn.onclick = async () => {
   });
 
   // Generate X post
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     let text = input.value.trim();
-    if(!text) {
+    if(!text){
       output.textContent = "Please enter a message first.";
       return;
     }

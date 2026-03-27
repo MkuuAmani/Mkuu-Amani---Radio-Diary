@@ -132,13 +132,21 @@ recordBtn.onclick = async () => {
 
 </body>
 </html>
-<!-- PRODIGAL SUN RADIO X POST GENERATOR (Standalone, Auto-Fill Now Playing) -->
+<!-- PRODIGAL SUN RADIO X POST GENERATOR WITH COVER ART -->
 <div id="xPostGenerator" style="margin-top:30px; padding:20px; background:#111; border-radius:12px; color:#fff; font-family:Arial,sans-serif;">
   <h2 style="margin-bottom:10px; color:#f7c873;">Generate X Post</h2>
-  
+
+  <div id="currentTrackPreview" style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+    <img id="trackCover" src="" alt="Cover Art" style="width:60px; height:60px; border-radius:6px; object-fit:cover; display:none;">
+    <div>
+      <div id="trackArtist" style="font-weight:bold; font-size:16px;"></div>
+      <div id="trackTitle" style="font-size:14px; opacity:0.8;"></div>
+    </div>
+  </div>
+
   <textarea id="xPostInput" placeholder="Type your message..." 
     style="width:100%; height:80px; padding:10px; border-radius:8px; border:none; resize:none; font-size:16px;"></textarea>
-  
+
   <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
     <button id="xGenerateButton" 
       style="padding:10px 20px; font-size:16px; background:#1da1f2; color:#fff; border:none; border-radius:8px; cursor:pointer;">
@@ -151,39 +159,48 @@ recordBtn.onclick = async () => {
 </div>
 
 <script>
-(async function(){
+(function(){
+  const SHEET_API = "https://api.radioking.io/widget/radio/the-channel-x/track/current";
   const input = document.getElementById("xPostInput");
   const button = document.getElementById("xGenerateButton");
   const output = document.getElementById("xOutput");
   const charCount = document.getElementById("xCharCount");
+  const coverImg = document.getElementById("trackCover");
+  const trackArtist = document.getElementById("trackArtist");
+  const trackTitle = document.getElementById("trackTitle");
 
-  // Your RadioKing Now Playing API URL
-  const NOW_PLAYING_API = "https://api.radioking.io/widget/radio/the-channel-x/track/current";
+  let currentTrack = {artist:"", title:"", cover:""};
 
-  // Fetch current track from API
-  async function fetchNowPlaying() {
+  // Fetch current track info from RadioKing
+  async function fetchCurrentTrack(){
     try {
-      const res = await fetch(NOW_PLAYING_API, {cache: "no-store"});
+      const res = await fetch(SHEET_API, {cache:"no-store"});
       const data = await res.json();
-      const artist = data.artist || "Unknown Artist";
-      const title = data.title || "Unknown Title";
-      return `🎵 Now Playing: ${artist} – ${title}`;
-    } catch(e) {
-      console.log("Error fetching Now Playing", e);
-      return "";
-    }
-  }
+      const artist = data.artist || "";
+      const title = data.title || "";
+      const cover = data.cover || data.album?.cover || ""; // fallback if API returns album object
+      currentTrack = {artist, title, cover};
 
-  // Auto-fill on focus
-  input.addEventListener("focus", async () => {
-    if(input.value.trim() === ""){
-      const track = await fetchNowPlaying();
-      if(track){
-        input.value = track;
+      trackArtist.textContent = artist;
+      trackTitle.textContent = title;
+
+      if(cover){
+        coverImg.src = cover;
+        coverImg.style.display = "block";
+      } else {
+        coverImg.style.display = "none";
+      }
+
+      // Auto-fill input if empty
+      if(input.value.trim()===""){
+        input.value = `🎵 Now Playing: ${artist} – ${title}`;
         charCount.textContent = `${input.value.length} / 280`;
       }
+
+    } catch(e){
+      console.log("Error fetching current track", e);
     }
-  });
+  }
 
   // Update character count dynamically
   input.addEventListener("input", () => {
@@ -191,15 +208,25 @@ recordBtn.onclick = async () => {
   });
 
   // Generate X post
-  button.addEventListener("click", async () => {
+  button.addEventListener("click", () => {
     let text = input.value.trim();
     if(!text){
       output.textContent = "Please enter a message first.";
       return;
     }
-    // Optional: prepend radio handle or hashtags
     const postText = `🎧 Prodigal Sun Radio\n${text}\n#PSR #Radio`;
     output.textContent = postText;
+
+    // Open X intent
+    const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(postText);
+    window.open(url, "_blank");
   });
+
+  // Initial fetch
+  fetchCurrentTrack();
+
+  // Refresh current track every 15 seconds
+  setInterval(fetchCurrentTrack, 15000);
+
 })();
 </script>
